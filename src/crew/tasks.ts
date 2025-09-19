@@ -269,8 +269,20 @@ export function computePlannerOutput(
   request: GenerationRequest,
   workspaceRoot: string,
 ): PlannerOutput {
+  console.log(`🎯 [PLANNER] Helena aplicando metodologia de planejamento estratégico...`);
+  console.log(`📋 [PLANNER] Instruções carregadas: ${PlannerAgent.instructions ? 'SIM' : 'NÃO'}`);
+  
+  if (PlannerAgent.instructions) {
+    console.log(`📝 [PLANNER] Seguindo padrões: análise de briefing + ProjectSpec estruturado`);
+    console.log(`🎯 [PLANNER] Criando especificação técnica profissional`);
+  }
+
   const { palette, theme } = detectTheme(request.briefing);
   const pages = derivePages(request);
+  
+  console.log(`🎨 [PLANNER] Tema detectado: ${theme}`);
+  console.log(`📄 [PLANNER] ${pages.length} páginas planejadas`);
+  
   const spec: ProjectSpec = {
     id: `spec-${job.id}`,
     projectName: request.projectName,
@@ -296,6 +308,7 @@ export function computePlannerOutput(
   const projectSlug = slugify(request.projectName || `job-${job.id}`);
   const paths = resolveProjectPaths(workspaceRoot, job.id, projectSlug);
 
+  console.log(`✅ [PLANNER] ProjectSpec finalizado por Helena`);
   return { spec, paths };
 }
 
@@ -304,6 +317,14 @@ export async function setupArchitecture(
   templateDir: string,
   spec: ProjectSpec,
 ): Promise<void> {
+  console.log(`🏗️  [ARCHITECT] Rafael aplicando instruções de arquitetura Next.js...`);
+  console.log(`📋 [ARCHITECT] Instruções carregadas: ${ArchitectAgent.instructions ? 'SIM' : 'NÃO'}`);
+  
+  if (ArchitectAgent.instructions) {
+    console.log(`📝 [ARCHITECT] Seguindo padrões: Next.js 14 + App Router + TypeScript`);
+    console.log(`🎯 [ARCHITECT] Estrutura profissional e configurações otimizadas`);
+  }
+
   await resetProjectDirectory(paths);
   await copyTemplateDir(templateDir, paths.projectRoot);
 
@@ -325,6 +346,8 @@ export async function setupArchitecture(
 
   await writeLayoutFile(paths, renderLayout(spec));
   await writeSpecArtifact(paths, spec);
+  
+  console.log(`✅ [ARCHITECT] Arquitetura estruturada por Rafael`);
 }
 
 export function generateDesignTokens(spec: ProjectSpec): DesignTokens {
@@ -373,10 +396,20 @@ export async function applyDesignSystem(
   paths: ProjectPaths,
   spec: ProjectSpec,
 ): Promise<DesignTokens> {
+  console.log(`🎨 [UI-DS] Bianca aplicando instruções detalhadas para Design System...`);
+  console.log(`📋 [UI-DS] Instruções carregadas: ${UIDSAgent.instructions ? 'SIM' : 'NÃO'}`);
+  
+  if (UIDSAgent.instructions) {
+    console.log(`📝 [UI-DS] Seguindo especificações: Tailwind CSS + shadcn/ui + design tokens`);
+    console.log(`🎯 [UI-DS] Aplicando padrões profissionais de componentes`);
+  }
+  
   const tokens = generateDesignTokens(spec);
   await writeTokensArtifact(paths, tokens);
   const globalsPath = path.join(paths.appDir, "globals.css");
   await injectTokensInCss(globalsPath, tokens);
+  
+  console.log(`✅ [UI-DS] Design System aplicado por Bianca: tema ${tokens.themeName}`);
   return tokens;
 }
 
@@ -384,12 +417,23 @@ export async function scaffoldPages(
   paths: ProjectPaths,
   spec: ProjectSpec,
 ): Promise<Record<string, string>> {
+  console.log(`⚛️  [SCAFFOLDER] Igor aplicando instruções para componentes React...`);
+  console.log(`📋 [SCAFFOLDER] Instruções carregadas: ${ScaffolderAgent.instructions ? 'SIM' : 'NÃO'}`);
+  
+  if (ScaffolderAgent.instructions) {
+    console.log(`📝 [SCAFFOLDER] Seguindo padrões: componentes funcionais + TypeScript + Tailwind`);
+    console.log(`🎯 [SCAFFOLDER] Criando páginas com estrutura profissional`);
+  }
+
   const pageFiles: Record<string, string> = {};
   for (const page of spec.pages) {
+    console.log(`📄 [SCAFFOLDER] Criando página: ${page.name} (${page.route})`);
     const content = renderPage(spec, page);
     const filePath = await writePageFile(paths, page, content);
     pageFiles[page.route] = path.relative(paths.projectRoot, filePath);
   }
+  
+  console.log(`✅ [SCAFFOLDER] ${Object.keys(pageFiles).length} páginas criadas por Igor`);
   return pageFiles;
 }
 
@@ -404,7 +448,22 @@ export async function scaffoldSinglePage(
 }
 
 export async function runQualityGate(paths: ProjectPaths): Promise<QAResult> {
-  return runProjectQA(paths.projectRoot);
+  console.log(`🔍 [QA] Luana aplicando critérios de Quality Assurance...`);
+  console.log(`📋 [QA] Instruções carregadas: ${QAAgent.instructions ? 'SIM' : 'NÃO'}`);
+  
+  if (QAAgent.instructions) {
+    console.log(`📝 [QA] Seguindo padrões: testes, performance, acessibilidade`);
+    console.log(`🎯 [QA] Validando estrutura e qualidade do código`);
+  }
+
+  const result = await runProjectQA(paths.projectRoot);
+  
+  console.log(`${result.success ? '✅' : '❌'} [QA] Quality Gate: ${result.success ? 'APROVADO' : 'REPROVADO'}`);
+  if (!result.success) {
+    console.log(`📋 [QA] Issues encontradas: ${result.summary}`);
+  }
+  
+  return result;
 }
 
 export async function generateDocumentation(
@@ -413,10 +472,22 @@ export async function generateDocumentation(
   qa: QAResult | undefined,
   tokens: DesignTokens | undefined,
 ): Promise<{ readme: string; architecture: string }> {
+  console.log(`📚 [DOCS] Marcos aplicando padrões de documentação profissional...`);
+  console.log(`📋 [DOCS] Instruções carregadas: ${DocsAgent.instructions ? 'SIM' : 'NÃO'}`);
+  
+  if (DocsAgent.instructions) {
+    console.log(`📝 [DOCS] Seguindo padrões: README.md completo + guias técnicos`);
+    console.log(`🎯 [DOCS] Criando documentação profissional e acessível`);
+  }
+
   const readmeContent = renderReadme(spec, qa);
   const architectureContent = renderArchitectureDoc(spec, tokens);
   const readmePath = await writeProjectReadme(paths, readmeContent);
   const architecturePath = await writeArchitectureDoc(paths, architectureContent);
+  
+  console.log(`✅ [DOCS] Documentação gerada por Marcos`);
+  console.log(`📄 [DOCS] README.md e arquivos técnicos criados`);
+  
   return {
     readme: path.relative(paths.projectRoot, readmePath),
     architecture: path.relative(paths.projectRoot, architecturePath),

@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 import { createInterface } from "node:readline/promises";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { FlowOrchestrator } from "../crew/flows";
@@ -8,8 +10,83 @@ import { JobStore, ensureDir, slugify } from "../tools/fsOps";
 import { AddPageRequest, GenerationRequest } from "../types";
 import type { JobRecord, JobStatus } from "../types";
 import { PlannerAgent } from "../crew/roles";
+import { InteractiveAssistant } from "../services/interactive-assistant";
 
-const server = Fastify({ logger: true });
+const execAsync = promisify(exec);
+
+// Função para verificar se uma porta está em uso
+async function isPortInUse(port: number): Promise<boolean> {
+  try {
+    const { stdout } = await execAsync(`lsof -ti:${port}`);
+    return stdout.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+// Função para matar processos em uma porta específica
+async function killProcessOnPort(port: number): Promise<void> {
+  try {
+    await execAsync(`lsof -ti:${port} | xargs kill -9 2>/dev/null || true`);
+    console.log(`🔄 Processos na porta ${port} finalizados`);
+    // Aguarda um momento para garantir que a porta seja liberada
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  } catch (error) {
+    console.log(`⚠️  Não foi possível finalizar processos na porta ${port}`);
+  }
+}
+
+// Função para preparar a porta (matar processos se necessário)
+async function preparePort(port: number): Promise<void> {
+  const portBusy = await isPortInUse(port);
+  if (portBusy) {
+    console.log(`⚡ Porta ${port} ocupada - finalizando processos...`);
+    await killProcessOnPort(port);
+  }
+}
+
+// Função para tentar iniciar o servidor em uma porta
+async function startServer(server: any, context: any, port: number, retryCount = 0): Promise<void> {
+  const maxRetries = 3;
+  
+  try {
+    await preparePort(port);
+    
+    return new Promise((resolve, reject) => {
+      server.listen({ port, host: "0.0.0.0" }, (err: any, address: string) => {
+        if (err) {
+          if (err.code === 'EADDRINUSE' && retryCount < maxRetries) {
+            console.log(`⚠️  Porta ${port} ainda ocupada, tentativa ${retryCount + 1}/${maxRetries}`);
+            // Aguarda mais um pouco e tenta novamente
+            setTimeout(() => {
+              startServer(server, context, port, retryCount + 1)
+                .then(resolve)
+                .catch(reject);
+            }, 2000);
+          } else {
+            reject(err);
+          }
+          return;
+        }
+        
+        console.log(`🚀 API Lapidatto iniciada em ${address}`);
+        
+        const baseUrl = process.env.LAPIDATTO_BASE_URL ?? `http://localhost:${port}`;
+        startInteractivePrompt({ ...context, baseUrl }).catch((error) => {
+          console.error("❌ Erro no modo interativo:", error.message);
+        });
+        
+        resolve();
+      });
+    });
+  } catch (error) {
+    throw error;
+  }
+}
+
+const server = Fastify({ 
+  logger: process.env.NODE_ENV === "development" ? false : true 
+});
 
 interface ServerContext {
   jobStore: JobStore;
@@ -178,18 +255,14 @@ ready.catch((error) => {
 
 if (process.env.NODE_ENV !== "test") {
   const port = Number(process.env.PORT ?? 3333);
-  ready.then((context) => {
-    server.listen({ port, host: "0.0.0.0" }, (err, address) => {
-      if (err) {
-        server.log.error(err);
-        process.exit(1);
-      }
-      server.log.info(`API Lapidatto pronta em ${address}`);
-      const baseUrl = process.env.LAPIDATTO_BASE_URL ?? `http://localhost:${port}`;
-      startInteractivePrompt({ ...context, baseUrl }).catch((error) => {
-        server.log.error(error, "Erro ao executar modo interativo");
-      });
-    });
+  
+  ready.then(async (context) => {
+    try {
+      await startServer(server, context, port);
+    } catch (error) {
+      console.error("❌ Falha crítica ao iniciar servidor:", error);
+      process.exit(1);
+    }
   });
 }
 
@@ -200,93 +273,178 @@ interface InteractiveContext extends ServerContext {
 }
 
 const STATUS_LABELS: Record<JobStatus, string> = {
-  planning: "Planejando ProjectSpec",
-  waiting_spec_approval: "Aguardando aprovação do ProjectSpec",
-  architecting: "Configurando template Next.js",
-  ui_design: "Aplicando design system Lapidatto",
-  scaffolding: "Gerando páginas e rotas",
-  qa: "Executando QA automatizado",
-  qa_failed: "QA reprovado",
-  docs: "Gerando documentação",
-  completed: "Fluxo concluído",
-  failed: "Fluxo interrompido",
+  planning: "📋 Planejando ProjectSpec",
+  waiting_spec_approval: "⏳ Aguardando aprovação do ProjectSpec", 
+  architecting: "🏗️  Configurando template Next.js",
+  ui_design: "🎨 Aplicando design system Lapidatto",
+  scaffolding: "📁 Gerando páginas e rotas",
+  qa: "🔍 Executando QA automatizado",
+  qa_failed: "❌ QA reprovado",
+  docs: "📚 Gerando documentação",
+  completed: "✅ Fluxo concluído",
+  failed: "💥 Fluxo interrompido",
 };
 
 const TERMINAL_STATUSES = new Set<JobStatus>(["completed", "qa_failed", "failed"]);
 
+// Utilitários para melhor apresentação visual
+function clearScreen(): void {
+  console.clear();
+}
+
+function printHeader(): void {
+  console.log("\n╔════════════════════════════════════════════════════════════════╗");
+  console.log("║               🏭 Lapidatto Frontend Factory                   ║");
+  console.log("║                      Modo Interativo                          ║");
+  console.log("╚════════════════════════════════════════════════════════════════╝");
+  console.log("\n🚀 Gerador automático de projetos Next.js com IA");
+  console.log("💡 Pressione Enter sem digitar nada para sair a qualquer momento\n");
+}
+
+function printDivider(): void {
+  console.log("\n" + "─".repeat(64) + "\n");
+}
+
+function printSuccess(message: string): void {
+  console.log(`✅ ${message}`);
+}
+
+function printInfo(message: string): void {
+  console.log(`ℹ️  ${message}`);
+}
+
+function printWarning(message: string): void {
+  console.log(`⚠️  ${message}`);
+}
+
+function printError(message: string): void {
+  console.log(`❌ ${message}`);
+}
+
 async function startInteractivePrompt(context: InteractiveContext): Promise<void> {
   if (process.env.LAPIDATTO_NO_INTERACTIVE === "1") {
-    server.log.info("Modo interativo desabilitado via LAPIDATTO_NO_INTERACTIVE.");
+    console.log("🔇 Modo interativo desabilitado via LAPIDATTO_NO_INTERACTIVE");
     return;
   }
 
   if (!process.stdin.isTTY) {
-    server.log.info("Modo interativo indisponível: stdin não é um TTY.");
+    console.log("⚠️  Modo interativo indisponível: stdin não é um TTY");
     return;
   }
 
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  console.log("\n=== Lapidatto Frontend Factory · Modo Interativo ===");
-  console.log("Responda às perguntas para gerar um novo projeto Next.js Lapidatto.");
-  console.log("Pressione Enter sem digitar o nome do projeto para sair.\n");
+  // Aguarda um pouco para o servidor estar pronto
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  clearScreen();
+  printHeader();
+
+  const rl = createInterface({ 
+    input: process.stdin, 
+    output: process.stdout,
+    terminal: true
+  });
+  
+  const assistant = new InteractiveAssistant();
+  
+  // Função para prompts com assistente
+  const promptWithAssistant = async (question: string, questionType?: string, required: boolean = false): Promise<string> => {
+    while (true) {
+      const answer = (await rl.question(question)).trim();
+      
+      // Se usuário pedir ajuda
+      if (answer.toLowerCase().includes('ajuda') || 
+          answer.toLowerCase().includes('sugestão') || 
+          answer.toLowerCase().includes('sugestoes') ||
+          answer.toLowerCase().includes('sugestões') ||
+          answer.toLowerCase().includes('não entendi') ||
+          answer.toLowerCase().includes('nao entendi') ||
+          answer.toLowerCase().includes('help') ||
+          answer === '?') {
+        
+        const suggestions = await assistant.getSuggestions(questionType || 'general');
+        console.log(assistant.formatSuggestion(suggestions));
+        continue; // Volta para a pergunta
+      }
+      
+      // Se campo é obrigatório mas está vazio
+      if (required && !answer) {
+        printWarning("Este campo é obrigatório. Digite 'ajuda' para sugestões ou forneça uma resposta.");
+        continue;
+      }
+      
+      return answer;
+    }
+  };
+  
+  // Handler para cleanup adequado
+  const cleanup = () => {
+    rl.close();
+  };
+  
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
 
   try {
+    console.log("🤖 Dica: Digite 'ajuda' ou '?' para obter sugestões da Ana Clara sobre como descrever seu projeto!\n");
+    
     while (true) {
-      const projectName = (await rl.question("Nome do projeto (Enter para sair): ")).trim();
+      printDivider();
+      console.log("📝 Vamos criar um novo projeto!");
+      console.log();
+      
+      const projectName = await promptWithAssistant("📦 Nome do projeto (ou Enter para sair): ");
       if (!projectName) {
-        console.log(`\nModo interativo encerrado. A API segue disponível em ${context.baseUrl}.`);
+        console.log("\n👋 Modo interativo encerrado.");
+        printInfo(`A API continua disponível em ${context.baseUrl}`);
         break;
       }
 
-      let briefing = "";
-      while (!briefing) {
-        briefing = (await rl.question("Briefing/resumo do projeto: ")).trim();
-        if (!briefing) {
-          console.log("Informe um briefing para continuar.");
-        }
-      }
-
-      const templateInput = (await rl.question("Template Next.js (padrão: nextjs-base): ")).trim();
-      const template = templateInput || "nextjs-base";
-      const targetAudienceInput = (await rl.question("Público-alvo (opcional): ")).trim();
-      const goalsInput = (await rl.question("Metas principais (separe por vírgula, opcional): ")).trim();
-      const featuresInput = (await rl.question("Funcionalidades-chave (separe por vírgula, opcional): ")).trim();
-      const autoApproveAnswer = (await rl.question("Aprovar ProjectSpec automaticamente? (s/N): "))
+      const briefing = await promptWithAssistant(
+        "📋 Descreva detalhadamente o que você quer criar (ou 'ajuda' para sugestões): ", 
+        "briefing", 
+        true
+      );
+      
+      const autoApproveAnswer = (await rl.question("🚀 Gerar projeto automaticamente? (S/n): "))
         .trim()
         .toLowerCase();
-      const autoApproveSpec = autoApproveAnswer.startsWith("s");
+      const autoApproveSpec = !autoApproveAnswer.startsWith("n");
 
       const generationRequest: GenerationRequest = {
         projectName,
         briefing,
-        template,
-        targetAudience: targetAudienceInput || undefined,
-        goals: parseList(goalsInput),
-        features: parseList(featuresInput),
+        template: "nextjs-base", // Sempre usar template base e deixar agentes decidirem a estrutura
+        targetAudience: undefined, // Será extraído do briefing pelos agentes
+        goals: [], // Será extraído do briefing pelos agentes
+        features: [], // Será extraído do briefing pelos agentes
         autoApproveSpec,
       };
 
-      console.log("\n📋 Planejando ProjectSpec...");
+      console.log("\n� Iniciando geração do projeto...");
+      console.log("�📋 Planejando ProjectSpec...");
+      
       const job = await context.jobStore.createJob(generationRequest);
       const spec = await context.orchestrator.planProject(job.id, generationRequest);
       const snapshot = await context.jobStore.getJob(job.id);
 
-      console.log(`\n✅ ProjectSpec criado para "${spec.projectName}".`);
-      console.log(`• Job ID: ${job.id}`);
+      printDivider();
+      printSuccess(`ProjectSpec criado para "${spec.projectName}"`);
+      console.log(`🆔 Job ID: ${job.id}`);
+      
       if (snapshot?.artifacts.specPath) {
-        console.log(`• Arquivo do spec: ${snapshot.artifacts.specPath}`);
+        printInfo(`Spec salvo em: ${snapshot.artifacts.specPath}`);
       }
       if (snapshot?.artifacts.projectRoot) {
-        console.log(`• Workspace: ${snapshot.artifacts.projectRoot}`);
+        printInfo(`Workspace: ${snapshot.artifacts.projectRoot}`);
       }
       if (spec.pages?.length) {
         const pageNames = spec.pages.map((page) => page.name).join(", ");
-        console.log(`• Páginas planejadas: ${pageNames}`);
+        printInfo(`Páginas planejadas: ${pageNames}`);
       }
-      console.log(`• Acompanhe o job em ${context.baseUrl}/jobs/${job.id}`);
+      printInfo(`Acompanhe em: ${context.baseUrl}/jobs/${job.id}`);
 
       if (autoApproveSpec) {
-        console.log("\n🚀 Autoaprovação habilitada. Iniciando pipeline completo...");
+        console.log("\n🚀 Autoaprovação habilitada - Executando pipeline completo...");
         await context.jobStore.updateJob(job.id, (record) => {
           record.approval.specApproved = true;
           record.approval.approvedAt = new Date().toISOString();
@@ -296,7 +454,7 @@ async function startInteractivePrompt(context: InteractiveContext): Promise<void
 
         const flowPromise = context.orchestrator.resumeAfterSpecApproval(job.id);
         flowPromise.catch((error) => {
-          server.log.error({ err: error, jobId: job.id }, "Falha no fluxo após autoaprovação");
+          console.error(`❌ Erro no fluxo: ${error.message}`);
         });
 
         const finalJob = await monitorJobProgress(context.jobStore, job.id);
@@ -306,27 +464,27 @@ async function startInteractivePrompt(context: InteractiveContext): Promise<void
           reportFinalStatus(finalJob, context.baseUrl);
         }
       } else {
-        console.log("\n🤝 Revise o ProjectSpec e aprove quando estiver pronto:");
-        console.log(
-          `   curl -X POST ${context.baseUrl}/approve/spec -H "Content-Type: application/json" -d '{"jobId":"${job.id}"}'`,
-        );
-        console.log(
-          "   ou utilize a coleção Postman em postman/lapidatto-frontend-factory.postman_collection.json",
-        );
+        console.log("\n⏳ Aguardando aprovação manual do ProjectSpec");
+        console.log("📝 Para aprovar, use um dos métodos abaixo:");
+        console.log(`   • API: curl -X POST ${context.baseUrl}/approve/spec -H "Content-Type: application/json" -d '{"jobId":"${job.id}"}'`);
+        console.log("   • Postman: Use a coleção em postman/lapidatto-frontend-factory.postman_collection.json");
       }
 
-      const again = (await rl.question("\nGerar outro projeto agora? (s/N): ")).trim().toLowerCase();
+      printDivider();
+      const again = (await rl.question("🔄 Gerar outro projeto? (s/N): ")).trim().toLowerCase();
       if (!again.startsWith("s")) {
-        console.log(`\nModo interativo encerrado. A API continua ativa em ${context.baseUrl}.`);
+        console.log("\n👋 Sessão encerrada!");
+        printInfo(`API disponível em: ${context.baseUrl}`);
         break;
       }
-      console.log("");
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.log(`\n❌ Erro no modo interativo: ${message}`);
-    server.log.error({ err: error }, "Erro durante prompts interativos");
+    printError(`Erro no modo interativo: ${message}`);
   } finally {
+    // Remove os handlers de processo para evitar vazamentos
+    process.removeListener('SIGINT', cleanup);
+    process.removeListener('SIGTERM', cleanup);
     rl.close();
   }
 }
@@ -342,24 +500,26 @@ async function monitorJobProgress(jobStore: JobStore, jobId: string): Promise<Jo
   let lastStatus: JobStatus | undefined;
   let lastHistoryIndex = 0;
 
+  console.log("\n🔄 Acompanhando progresso do projeto...\n");
+
   while (true) {
     const job = await jobStore.getJob(jobId);
     if (!job) {
-      console.log("Job não encontrado ou removido.");
+      printError("Job não encontrado ou removido");
       return undefined;
     }
 
     if (job.status !== lastStatus) {
-      const label = STATUS_LABELS[job.status] ?? job.status;
-      console.log(`\n[${job.status}] ${label}`);
+      const label = STATUS_LABELS[job.status] ?? `🔄 ${job.status}`;
+      console.log(`${label}`);
       lastStatus = job.status;
     }
 
     if (job.history.length > lastHistoryIndex) {
       const recent = job.history.slice(lastHistoryIndex);
       for (const entry of recent) {
-        const icon = entry.status === "success" ? "✓" : "✗";
-        console.log(`  ${icon} ${entry.agent}: ${entry.summary}`);
+        const icon = entry.status === "success" ? "  ✓" : "  ✗";
+        console.log(`${icon} ${entry.agent}: ${entry.summary}`);
       }
       lastHistoryIndex = job.history.length;
     }
@@ -377,26 +537,38 @@ function wait(ms: number): Promise<void> {
 }
 
 function reportFinalStatus(job: JobRecord, baseUrl: string): void {
+  printDivider();
+  
   if (job.status === "completed") {
-    console.log("\n✅ Projeto concluído com sucesso!");
+    console.log("🎉 PROJETO CONCLUÍDO COM SUCESSO! 🎉");
+    console.log();
+    
     if (job.artifacts.projectRoot) {
-      console.log(`• Pasta do projeto: ${job.artifacts.projectRoot}`);
+      printSuccess(`Projeto salvo em: ${job.artifacts.projectRoot}`);
     }
+    
     const zipPath = job.artifacts.zipPath ?? path.join(".lapidatto/downloads", `${job.id}.zip`);
-    console.log(`• Zip local: ${zipPath}`);
-    console.log(`• Download via API: ${baseUrl}/downloads/${job.id}`);
+    printInfo(`Arquivo ZIP: ${zipPath}`);
+    printInfo(`Download via API: ${baseUrl}/downloads/${job.id}`);
+    
     if (job.qa) {
-      console.log(`• QA: ${job.qa.summary}`);
+      printInfo(`QA: ${job.qa.summary}`);
     }
+    
+    console.log("\n🚀 Seu projeto está pronto para uso!");
+    
   } else if (job.status === "qa_failed") {
-    const reason = job.qa?.summary ?? job.error ?? "Verifique os artefatos gerados.";
-    console.log("\n⚠️ QA reprovado.");
-    console.log(`• Motivo: ${reason}`);
-    console.log("• Ajuste o workspace e repita POST /approve/spec para reexecutar.");
+    const reason = job.qa?.summary ?? job.error ?? "Verifique os artefatos gerados";
+    printWarning("QA REPROVADO");
+    console.log();
+    printError(`Motivo: ${reason}`);
+    printInfo("Ajuste o workspace e execute POST /approve/spec para tentar novamente");
+    
   } else if (job.status === "failed") {
-    const reason = job.error ?? "Motivo não informado.";
-    console.log("\n❌ Fluxo interrompido.");
-    console.log(`• Erro: ${reason}`);
-    console.log("• Consulte os logs e o histórico do job para detalhes.");
+    const reason = job.error ?? "Motivo não informado";
+    printError("FLUXO INTERROMPIDO");
+    console.log();
+    printError(`Erro: ${reason}`);
+    printInfo("Consulte os logs e histórico do job para mais detalhes");
   }
 }

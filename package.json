@@ -6,6 +6,8 @@
   "main": "dist/api/server.js",
   "scripts": {
     "dev": "tsx watch src/api/server.ts",
+    "dev:interactive": "tsx src/api/server.ts",
+    "dev:clean": "lsof -ti:3333 | xargs kill -9 2>/dev/null || true && npm run dev:interactive",
     "start": "node dist/api/server.js",
     "build": "tsc -p tsconfig.json",
     "lint": "tsc --noEmit",

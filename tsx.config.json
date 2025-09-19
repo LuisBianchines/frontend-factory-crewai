@@ -1,0 +1,10 @@
+{
+  "watch": {
+    "exclude": [
+      ".lapidatto/**",
+      "dist/**",
+      "node_modules/**",
+      "*.log"
+    ]
+  }
+}

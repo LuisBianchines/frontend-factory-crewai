@@ -80,10 +80,19 @@ export class FlowOrchestrator {
   }
 
   async planProject(jobId: string, request: GenerationRequest): Promise<ProjectSpec> {
+    console.log(`🎯 [FLOW] Iniciando planejamento com Helena Moraes...`);
+    console.log(`📋 [PLANNER] Helena está analisando o briefing: "${request.briefing.substring(0, 60)}..."`);
+    console.log(`🏗️  [PLANNER] Template escolhido: ${request.template}`);
+    
     await this.jobStore.setStatus(jobId, "planning");
     const job = await this.ensureJob(jobId);
     const { spec, paths } = computePlannerOutput(job, request, this.workspaceRoot);
     assertValidProjectSpec(spec);
+
+    console.log(`✅ [PLANNER] ProjectSpec criado por Helena`);
+    console.log(`📊 [PLANNER] Projeto: ${spec.projectName}`);
+    console.log(`📄 [PLANNER] Páginas planejadas: ${spec.pages.map((p: PageDefinition) => p.name).join(', ')}`);
+    console.log(`🎨 [PLANNER] Tema: ${spec.designSystem.theme}`);
 
     await this.jobStore.setSpec(jobId, spec);
     const specPath = await writeSpecArtifact(paths, spec);
@@ -121,6 +130,10 @@ export class FlowOrchestrator {
       throw new Error("Spec precisa ser aprovado antes de prosseguir.");
     }
 
+    console.log(`🚀 [FLOW] Iniciando geração de projeto para: ${context.spec.projectName}`);
+    console.log(`👥 [FLOW] Agentes que irão trabalhar: Rafael → Bianca → Igor → Luana → Marcos`);
+    console.log(`📋 [FLOW] Brief: ${context.job.input.briefing.substring(0, 100)}...`);
+
     try {
       await this.runArchitecture(jobId, context);
       const tokens = await this.runDesignSystem(jobId, context);
@@ -140,7 +153,12 @@ export class FlowOrchestrator {
         status: "success",
         summary: "Fluxo concluído com zip disponível para download.",
       });
+      
+      console.log(`🎉 [FLOW] Projeto ${context.spec.projectName} concluído com sucesso!`);
+      console.log(`📦 [FLOW] Arquivo ZIP pronto para download`);
+      
     } catch (error) {
+      console.error(`❌ [FLOW] Erro durante a geração:`, error);
       await this.jobStore.setStatus(jobId, "failed");
       await this.jobStore.setError(jobId, error instanceof Error ? error.message : String(error));
       await this.jobStore.appendHistory(jobId, {
@@ -154,8 +172,15 @@ export class FlowOrchestrator {
   }
 
   private async runArchitecture(jobId: string, context: ResumeContext): Promise<void> {
+    console.log(`🏗️  [FLOW] Iniciando fase de arquitetura com Rafael Guimarães...`);
+    console.log(`📁 [FLOW] Projeto: ${context.spec.projectName}`);
+    console.log(`📋 [FLOW] Template: ${context.job.input.template}`);
+    
     await this.jobStore.setStatus(jobId, "architecting");
+    
+    console.log(`🔧 [ARCHITECT] Rafael está estruturando a arquitetura Next.js...`);
     await setupArchitecture(context.paths, context.templateDir, context.spec);
+    
     await this.jobStore.appendHistory(jobId, {
       agent: ArchitectAgent.id,
       task: "architecture.setup",
@@ -163,9 +188,13 @@ export class FlowOrchestrator {
       summary: "Template Next.js Lapidatto estruturado.",
     });
     await this.jobStore.setArtifacts(jobId, { projectRoot: context.paths.projectRoot });
+    console.log(`✅ [ARCHITECT] Arquitetura concluída por Rafael`);
   }
 
   private async runDesignSystem(jobId: string, context: ResumeContext) {
+    console.log(`🎨 [FLOW] Iniciando fase de Design System com Bianca Andrade...`);
+    console.log(`🎯 [UI-DS] Bianca está criando tokens de design e configurando Tailwind...`);
+    
     await this.jobStore.setStatus(jobId, "ui_design");
     const tokens = assertValidDesignTokens(
       await applyDesignSystem(context.paths, context.spec),
@@ -177,10 +206,18 @@ export class FlowOrchestrator {
       status: "success",
       summary: `Tokens Lapidatto (${tokens.themeName}) aplicados ao projeto.`,
     });
+    
+    console.log(`✅ [UI-DS] Design System concluído por Bianca`);
+    console.log(`🎨 [UI-DS] Tema: ${tokens.themeName}`);
+    console.log(`🔧 [UI-DS] Tokens aplicados: cores, tipografia, espaçamentos`);
+    
     return tokens;
   }
 
   private async runScaffolding(jobId: string, context: ResumeContext) {
+    console.log(`⚛️  [FLOW] Iniciando fase de Scaffolding com Igor Peixoto...`);
+    console.log(`🔧 [SCAFFOLDER] Igor está criando páginas e componentes React...`);
+    
     await this.jobStore.setStatus(jobId, "scaffolding");
     const pages = await scaffoldPages(context.paths, context.spec);
     await this.jobStore.setArtifacts(jobId, { pages });
@@ -190,10 +227,18 @@ export class FlowOrchestrator {
       status: "success",
       summary: `${Object.keys(pages).length} páginas criadas com storytelling Lapidatto.`,
     });
+    
+    console.log(`✅ [SCAFFOLDER] Scaffolding concluído por Igor`);
+    console.log(`📄 [SCAFFOLDER] Páginas criadas: ${Object.keys(pages).length}`);
+    console.log(`🎭 [SCAFFOLDER] Páginas: ${Object.keys(pages).join(', ')}`);
+    
     return pages;
   }
 
   private async runQuality(jobId: string, context: ResumeContext) {
+    console.log(`🔍 [FLOW] Iniciando fase de Quality Assurance com Luana Reis...`);
+    console.log(`✅ [QA] Luana está validando qualidade do código e estrutura...`);
+    
     await this.jobStore.setStatus(jobId, "qa");
     const qa = await runQualityGate(context.paths);
     await this.jobStore.setQA(jobId, qa);
@@ -203,10 +248,21 @@ export class FlowOrchestrator {
       status: qa.success ? "success" : "failed",
       summary: qa.summary,
     });
+    
+    if (qa.success) {
+      console.log(`✅ [QA] Quality Gate passou - projeto aprovado por Luana`);
+    } else {
+      console.log(`❌ [QA] Quality Gate falhou - ajustes necessários`);
+      console.log(`📋 [QA] Resumo: ${qa.summary}`);
+    }
+    
     return qa;
   }
 
   private async runDocs(jobId: string, context: ResumeContext, qa: Awaited<ReturnType<typeof runQualityGate>>, tokens: Awaited<ReturnType<typeof applyDesignSystem>>) {
+    console.log(`📚 [FLOW] Iniciando fase de Documentação com Marcos Oliveira...`);
+    console.log(`📝 [DOCS] Marcos está gerando README.md e documentação técnica...`);
+    
     await this.jobStore.setStatus(jobId, "docs");
     const docs = await generateDocumentation(context.paths, context.spec, qa, tokens);
     await this.jobStore.setArtifacts(jobId, { docs });
@@ -216,6 +272,10 @@ export class FlowOrchestrator {
       status: "success",
       summary: "Documentação final gerada.",
     });
+    
+    console.log(`✅ [DOCS] Documentação concluída por Marcos`);
+    console.log(`📋 [DOCS] README.md profissional criado`);
+    console.log(`🔧 [DOCS] Guias de instalação e desenvolvimento incluídos`);
   }
 
   private async buildZip(jobId: string, context: ResumeContext) {

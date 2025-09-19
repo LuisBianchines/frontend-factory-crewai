@@ -1,3 +1,6 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
 export interface CrewAgent {
   id: string;
   name: string;
@@ -5,6 +8,21 @@ export interface CrewAgent {
   bio: string;
   goals: string[];
   expertise: string[];
+  instructions?: string;
+}
+
+// Helper function to load instructions from markdown files
+function loadInstructions(agentId: string): string {
+  try {
+    // Usar process.cwd() ao invés de __dirname para evitar problemas de build
+    const instructionsPath = join(process.cwd(), 'src', 'crew', 'instructions', `${agentId}.md`);
+    const content = readFileSync(instructionsPath, 'utf-8');
+    console.log(`✅ [ROLES] Instruções carregadas para ${agentId}: ${content.length} caracteres`);
+    return content;
+  } catch (error) {
+    console.error(`❌ [ROLES] Erro ao carregar instruções para ${agentId}:`, error);
+    return `## Instruções Básicas para ${agentId}\n\nInstruções detalhadas não encontradas. Use as diretrizes básicas do agente.`;
+  }
 }
 
 export const PlannerAgent: CrewAgent = {
@@ -18,6 +36,7 @@ export const PlannerAgent: CrewAgent = {
     "Preparar o artefato ProjectSpec para aprovação",
   ],
   expertise: ["product discovery", "roadmapping", "ux research"],
+  instructions: loadInstructions("planner"),
 };
 
 export const ArchitectAgent: CrewAgent = {
@@ -31,6 +50,7 @@ export const ArchitectAgent: CrewAgent = {
     "Preparar scaffolding para aceleradores de UI",
   ],
   expertise: ["next.js", "typescript", "software architecture"],
+  instructions: loadInstructions("architect"),
 };
 
 export const UIDSAgent: CrewAgent = {
@@ -44,6 +64,7 @@ export const UIDSAgent: CrewAgent = {
     "Preparar base para componentes reutilizáveis",
   ],
   expertise: ["design systems", "tokens", "accessibility"],
+  instructions: loadInstructions("ui-ds"),
 };
 
 export const ScaffolderAgent: CrewAgent = {
@@ -57,6 +78,7 @@ export const ScaffolderAgent: CrewAgent = {
     "Manter navegação e conteúdo consistentes",
   ],
   expertise: ["react", "component-driven development", "content design"],
+  instructions: loadInstructions("scaffolder"),
 };
 
 export const QAAgent: CrewAgent = {
@@ -70,19 +92,36 @@ export const QAAgent: CrewAgent = {
     "Garantir que o zip esteja pronto para entrega",
   ],
   expertise: ["testing", "code quality", "automation"],
+  instructions: loadInstructions("qa"),
 };
 
 export const DocsAgent: CrewAgent = {
   id: "docs",
-  name: "Marcos Vidal",
+  name: "Marcos Oliveira",
   role: "DocsAgent",
-  bio: "Documenta entregáveis do projeto e conta a história arquitetural Lapidatto.",
+  bio: "Especialista técnico em documentação de projetos frontend, responsável por gerar README.md completos e guias de desenvolvimento.",
   goals: [
-    "Gerar README final com instruções de uso",
-    "Criar ADR inicial com principais decisões",
-    "Registrar artefatos relevantes do projeto",
+    "Documentar estrutura do projeto e dependências",
+    "Gerar guias de instalação e configuração",
+    "Criar documentação de componentes e APIs",
+    "Estabelecer padrões de código e melhores práticas",
   ],
-  expertise: ["technical writing", "architecture", "knowledge management"],
+  expertise: ["technical writing", "markdown", "project documentation", "developer experience"],
+  instructions: loadInstructions("docs"),
+};
+
+export const InteractiveAssistantAgent: CrewAgent = {
+  id: "interactive-assistant",
+  name: "Ana Clara",
+  role: "InteractiveAssistantAgent",
+  bio: "Assistente especializada em guiar usuários através do processo de criação de projetos, oferecendo sugestões contextuais e exemplos práticos.",
+  goals: [
+    "Ajudar usuários a definir requisitos de projeto",
+    "Fornecer exemplos e sugestões contextuais",
+    "Esclarecer dúvidas sobre templates e funcionalidades",
+    "Guiar o processo de briefing de forma amigável"
+  ],
+  expertise: ["user experience", "project consulting", "requirement gathering", "communication"]
 };
 
 export const AllAgents = [

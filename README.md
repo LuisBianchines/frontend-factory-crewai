@@ -46,6 +46,10 @@ Persistência é feita via JSON (`JobStore`), garantindo estado após reinício.
 | `GET`  | `/jobs/:jobId` | Obtém snapshot do estado do job (status, histórico, artefatos). |
 | `GET`  | `/health` | Saúde da API + nome do planner. |
 
+### Coleção Postman
+
+Importe `postman/lapidatto-frontend-factory.postman_collection.json` para testar rapidamente os endpoints. A coleção já traz variáveis `baseUrl` (default `http://localhost:3333`) e `jobId` para reaproveitar a resposta da criação do projeto ao aprovar o spec, adicionar páginas e baixar o `.zip`.
+
 ### Estrutura do ProjectSpec
 
 O Planner produz um objeto conforme [`src/contracts/project_spec.schema.json`](src/contracts/project_spec.schema.json), incluindo:
@@ -96,7 +100,7 @@ Após aprovação, cada job cria diretório em `.lapidatto/workspace/<jobId>/<sl
 
 ### QA loop
 
-O `QAAgent` verifica presença de `package.json`, scripts `lint`/`test`, `tsconfig` e páginas principais. Se falhar, o job fica em `qa_failed`; basta corrigir e chamar novamente `POST /approve/spec` para reexecutar o pipeline.
+O `QAAgent` verifica presença de `package.json`, scripts `lint`/`test`, `tsconfig` e páginas principais. Se falhar, o job fica em `qa_failed`; após ajustar o workspace, basta repetir `POST /approve/spec` (mesmo com o spec já aprovado) para limpar o erro e reiniciar o pipeline a partir do `ArchitectAgent`.
 
 ## Scripts npm
 

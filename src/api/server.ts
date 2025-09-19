@@ -71,17 +71,48 @@ async function bootstrap() {
       reply.code(404);
       return { error: "Job não encontrado." };
     }
-    if (job.approval.specApproved) {
-      return { jobId: job.id, status: job.status };
+    const approvedAt = new Date().toISOString();
+    const resumeFlow = () =>
+      orchestrator.resumeAfterSpecApproval(job.id).catch((error) => {
+        server.log.error({ err: error, jobId: job.id }, "Erro ao continuar fluxo após aprovação");
+      });
+
+    if (!job.approval.specApproved) {
+      await jobStore.updateJob(job.id, (record) => {
+        record.approval.specApproved = true;
+        record.approval.approvedAt = approvedAt;
+        record.error = undefined;
+        record.qa = undefined;
+      });
+      await jobStore.setStatus(job.id, "architecting");
+      await jobStore.appendHistory(job.id, {
+        agent: "client",
+        task: "spec.approve",
+        status: "success",
+        summary: "ProjectSpec aprovado manualmente via API.",
+      });
+      resumeFlow();
+      return { jobId: job.id, status: "architecting" };
     }
-    await jobStore.updateJob(job.id, (record) => {
-      record.approval.specApproved = true;
-      record.approval.approvedAt = new Date().toISOString();
-    });
-    orchestrator.resumeAfterSpecApproval(job.id).catch((error) => {
-      server.log.error({ err: error, jobId: job.id }, "Erro ao continuar fluxo após aprovação");
-    });
-    return { jobId: job.id, status: "architecting" };
+
+    if (job.status === "qa_failed" || job.status === "failed") {
+      await jobStore.updateJob(job.id, (record) => {
+        record.status = "architecting";
+        record.error = undefined;
+        record.approval.approvedAt = approvedAt;
+        record.qa = undefined;
+      });
+      await jobStore.appendHistory(job.id, {
+        agent: "client",
+        task: "spec.reapprove",
+        status: "success",
+        summary: "Fluxo reexecutado após falha anterior.",
+      });
+      resumeFlow();
+      return { jobId: job.id, status: "architecting" };
+    }
+
+    return { jobId: job.id, status: job.status };
   });
 
   server.post("/add-page", async (request, reply) => {

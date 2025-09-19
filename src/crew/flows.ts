@@ -24,6 +24,7 @@ import {
   writeLayoutFile,
   writeSpecArtifact,
 } from "./tools";
+import { assertValidDesignTokens, assertValidProjectSpec } from "../contracts/validators";
 import {
   ArchitectAgent,
   DocsAgent,
@@ -82,6 +83,7 @@ export class FlowOrchestrator {
     await this.jobStore.setStatus(jobId, "planning");
     const job = await this.ensureJob(jobId);
     const { spec, paths } = computePlannerOutput(job, request, this.workspaceRoot);
+    assertValidProjectSpec(spec);
 
     await this.jobStore.setSpec(jobId, spec);
     const specPath = await writeSpecArtifact(paths, spec);
@@ -107,6 +109,7 @@ export class FlowOrchestrator {
     if (!job.spec) {
       throw new Error("Job ainda não possui ProjectSpec aprovado.");
     }
+    assertValidProjectSpec(job.spec);
     const paths = this.resolvePaths(job, job.spec);
     const templateDir = this.getTemplateDir(job.input.template);
     return { job, spec: job.spec, paths, templateDir };
@@ -164,7 +167,9 @@ export class FlowOrchestrator {
 
   private async runDesignSystem(jobId: string, context: ResumeContext) {
     await this.jobStore.setStatus(jobId, "ui_design");
-    const tokens = await applyDesignSystem(context.paths, context.spec);
+    const tokens = assertValidDesignTokens(
+      await applyDesignSystem(context.paths, context.spec),
+    );
     await this.jobStore.setTokens(jobId, tokens, path.join(context.paths.designSystemDir, "tokens.json"));
     await this.jobStore.appendHistory(jobId, {
       agent: UIDSAgent.id,
@@ -232,6 +237,7 @@ export class FlowOrchestrator {
       components: payload.components,
     });
     job.spec.pages.push(page);
+    assertValidProjectSpec(job.spec);
     await this.jobStore.setSpec(jobId, job.spec);
 
     const paths = this.resolvePaths(job, job.spec);

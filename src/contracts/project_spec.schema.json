@@ -1,5 +1,86 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ProjectSpec",
-  "type": "object"
+  "type": "object",
+  "required": [
+    "id",
+    "projectName",
+    "summary",
+    "objectives",
+    "targetAudience",
+    "voiceTone",
+    "pages",
+    "dataRequirements",
+    "integrations",
+    "techStack",
+    "designSystem"
+  ],
+  "properties": {
+    "id": { "type": "string" },
+    "projectName": { "type": "string" },
+    "summary": { "type": "string" },
+    "objectives": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "targetAudience": { "type": "string" },
+    "voiceTone": { "type": "string" },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "route", "description", "layout", "seo", "components"],
+        "properties": {
+          "name": { "type": "string" },
+          "route": { "type": "string" },
+          "description": { "type": "string" },
+          "layout": {
+            "type": "string",
+            "enum": ["marketing", "dashboard", "informational"]
+          },
+          "hero": { "type": "string" },
+          "seo": {
+            "type": "object",
+            "required": ["title", "description", "keywords"],
+            "properties": {
+              "title": { "type": "string" },
+              "description": { "type": "string" },
+              "keywords": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          },
+          "components": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "dataRequirements": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "integrations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "techStack": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "designSystem": {
+      "type": "object",
+      "required": ["theme", "tokensFile", "foundations"],
+      "properties": {
+        "theme": { "type": "string" },
+        "tokensFile": { "type": "string" },
+        "foundations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
 }

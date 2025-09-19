@@ -1,6 +1,32 @@
 {
-  "name": "lapidatto-frontend-factory-crewai-node",
+  "name": "lapidatto-frontend-factory-crewai",
   "version": "0.1.0",
+  "description": "Lapidatto frontend factory orchestrator powered by Crew-style agents.",
   "type": "module",
-  "scripts": {"dev": "ts-node src/api/server.ts"}
+  "main": "dist/api/server.js",
+  "scripts": {
+    "dev": "tsx watch src/api/server.ts",
+    "start": "node dist/api/server.js",
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc --noEmit",
+    "test": "node --test --watch=false || true"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@fastify/cors": "^8.4.2",
+    "ajv": "^8.12.0",
+    "archiver": "^5.3.1",
+    "fastify": "^4.26.2",
+    "fs-extra": "^11.2.0",
+    "nanoid": "^4.0.2"
+  },
+  "devDependencies": {
+    "@types/archiver": "^5.3.3",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.11.30",
+    "tsx": "^4.7.1",
+    "typescript": "^5.4.2"
+  }
 }

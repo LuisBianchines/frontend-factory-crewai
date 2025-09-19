@@ -1,0 +1,75 @@
+:root {
+  /* LAPIDATTO::TOKENS_START */
+  --font-family-base: 'Inter', sans-serif;
+  --font-family-headings: 'Clash Display', sans-serif;
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
+  --color-surface: #ffffff;
+  --color-border: rgba(15, 23, 42, 0.12);
+  --color-primary: #6366f1;
+  --color-primary-foreground: #f8fafc;
+  --color-muted: rgba(99, 102, 241, 0.12);
+  --radius-lg: 24px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 8px 30px rgba(79, 70, 229, 0.15);
+  --space-4: 16px;
+  --space-6: 24px;
+  /* LAPIDATTO::TOKENS_END */
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family-base);
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+.bg-card {
+  background: var(--color-surface);
+}
+
+.bg-muted {
+  background: var(--color-muted);
+}
+
+.bg-surface {
+  background: var(--color-surface);
+}
+
+.text-muted-foreground {
+  color: color-mix(in srgb, var(--color-foreground) 65%, white 35%);
+}
+
+.text-primary {
+  color: var(--color-primary);
+}
+
+.text-primary-foreground {
+  color: var(--color-primary-foreground);
+}
+
+.border-border {
+  border-color: var(--color-border);
+}
+
+.rounded-2xl {
+  border-radius: var(--radius-md);
+}
+
+.rounded-3xl {
+  border-radius: var(--radius-lg);
+}
+
+.shadow-sm {
+  box-shadow: var(--shadow-sm);
+}
+
+.shadow-lg {
+  box-shadow: var(--shadow-md);
+}

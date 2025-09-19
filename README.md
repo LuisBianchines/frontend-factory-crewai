@@ -73,7 +73,9 @@ O `UIDSAgent` gera tokens validados por [`src/contracts/ds.tokens.schema.json`](
    ```bash
    npm run dev
    ```
-   A API sobe em `http://localhost:3333` (pode alterar porta via `PORT`).
+   A API sobe em `http://localhost:3333` (pode alterar porta via `PORT`) e o terminal abre um modo interativo perguntando o nome, briefing e preferências do novo projeto. Basta responder para que o Planner gere o ProjectSpec; opcionalmente marque a autoaprovação para disparar o pipeline completo e acompanhar o progresso diretamente no console.
+   - Pressione **Enter** no campo “Nome do projeto” para sair do modo interativo mantendo a API ativa.
+   - Defina `LAPIDATTO_NO_INTERACTIVE=1` caso queira iniciar o servidor sem prompts (útil para executar apenas via HTTP/Postman).
 3. **Build & produção**:
    ```bash
    npm run build

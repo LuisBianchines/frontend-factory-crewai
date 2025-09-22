@@ -1,0 +1,151 @@
+{
+  "info": {
+    "name": "Lapidatto Frontend Factory API",
+    "description": "Coleção de endpoints para orquestrar a Lapidatto Frontend Factory via Fastify API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3333"
+    },
+    {
+      "key": "jobId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Healthcheck",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Generate Project",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"projectName\": \"Lapidatto Demo\",\n  \"briefing\": \"Landing page com hero, sessão de métricas e CTA final.\",\n  \"template\": \"nextjs-base\",\n  \"autoApproveSpec\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/generate-project",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "generate-project"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Approve Project Spec",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jobId\": \"{{jobId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/approve/spec",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "approve",
+            "spec"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Add Page",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jobId\": \"{{jobId}}\",\n  \"page\": {\n    \"name\": \"Blog\",\n    \"route\": \"/blog\",\n    \"description\": \"Lista de artigos com CTA Lapidatto.\",\n    \"layout\": \"marketing\",\n    \"components\": [\"Hero\", \"FeaturesGrid\", \"CallToAction\"]\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/add-page",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "add-page"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Job Snapshot",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/jobs/{{jobId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "jobs",
+            "{{jobId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Download Project Zip",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/downloads/{{jobId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "downloads",
+            "{{jobId}}"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
